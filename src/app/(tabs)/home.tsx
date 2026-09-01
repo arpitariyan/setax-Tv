@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { StyleSheet, View, ScrollView, RefreshControl } from 'react-native';
+import { StyleSheet, View, ScrollView, RefreshControl, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/useTheme';
 import { AppText, AppButton, AppCard, AppBadge, AppContainer } from '@/components/ui';
 import { ChannelCard } from '@/components/ChannelCard';
-import { Spacing } from '@/theme/tokens';
+import { BorderRadius, IconSizes, Spacing } from '@/theme/tokens';
 import { PlaylistService } from '@/services/playlistService';
 import { ChannelNormalizer } from '@/services/channelNormalizer';
 import { getFavorites, addFavorite, removeFavorite, getRecentlyWatched, clearRecentlyWatched } from '@/storage';
@@ -42,17 +42,36 @@ export default function HomeScreen() {
     loadData();
   }, [loadData]);
 
-  const featuredChannels = useMemo(() => {
-    return allChannels.slice(0, 6);
+  const indianChannels = useMemo(() => {
+    return allChannels.filter((c) => ChannelNormalizer.isIndiaChannel(c)).slice(0, 6);
   }, [allChannels]);
+
+  const favoriteChannels = useMemo(() => {
+    const favSet = new Set(favorites);
+    return allChannels.filter((c) => favSet.has(c.id)).slice(0, 4);
+  }, [allChannels, favorites]);
 
   const recentlyWatchedChannels = useMemo(() => {
     const channelMap = new Map(allChannels.map((c) => [c.id, c]));
     return recentlyWatchedIds
       .map((id) => channelMap.get(id))
       .filter((c): c is Channel => Boolean(c))
-      .slice(0, 5);
+      .slice(0, 4);
   }, [allChannels, recentlyWatchedIds]);
+
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    allChannels.forEach((c) => c.categories.forEach((cat) => set.add(cat)));
+    return Array.from(set).slice(0, 10);
+  }, [allChannels]);
+
+  const countries = useMemo(() => {
+    const set = new Set<string>();
+    allChannels.forEach((c) => {
+      if (c.country) set.add(c.country);
+    });
+    return Array.from(set).slice(0, 10);
+  }, [allChannels]);
 
   const handleToggleFavorite = useCallback(async (channelId: string) => {
     if (favorites.includes(channelId)) {
@@ -91,6 +110,7 @@ export default function HomeScreen() {
           />
         }>
         <View style={styles.content}>
+          {/* Header Section */}
           <View style={styles.header}>
             <View>
               <AppText variant="titleLarge">Live TV</AppText>
@@ -98,24 +118,79 @@ export default function HomeScreen() {
                 Public Live Broadcast Catalogue
               </AppText>
             </View>
-            <AppBadge label="IPTV-ORG" status="available" />
+            <AppBadge label="INDIA FIRST" status="available" />
           </View>
 
-          <AppCard style={styles.bannerCard} variant="raised">
-            <AppText variant="titleMedium">Explore World Television</AppText>
-            <AppText variant="bodyMedium" color="secondary">
-              Watch live channels directly from public broadcasts without logins or fees.
+          {/* Search Bar Entry Trigger */}
+          <Pressable
+            onPress={() => router.push('/search')}
+            style={[styles.searchBar, { backgroundColor: colors.surfaceBase, borderColor: colors.borderDefault }]}>
+            <Ionicons name="search-sharp" size={IconSizes.sm} color={colors.textMuted} />
+            <AppText variant="bodyMedium" color="muted">
+              Search channels, countries, categories...
             </AppText>
-            <View style={styles.bannerActions}>
+          </Pressable>
+
+          {/* Quick TV Guide Shortcut Banner */}
+          <AppCard style={styles.bannerCard} variant="raised">
+            <View style={styles.bannerHeader}>
+              <View style={styles.bannerText}>
+                <AppText variant="titleMedium">Live Schedule & Guide</AppText>
+                <AppText variant="bodySmall" color="secondary">
+                  Check upcoming programmes and channel schedules.
+                </AppText>
+              </View>
               <AppButton
-                title="Browse Full Catalogue"
+                title="TV Guide"
                 variant="primary"
-                size="md"
-                leftIcon={<Ionicons name="tv-sharp" size={18} color={colors.textInverse} />}
-                onPress={() => router.push('/live')}
+                size="sm"
+                leftIcon={<Ionicons name="calendar-sharp" size={16} color={colors.textInverse} />}
+                onPress={() => router.push('/guide')}
               />
             </View>
           </AppCard>
+
+          {/* India Priority Channels Section */}
+          {indianChannels.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
+                <AppText variant="titleMedium">🇮🇳 Featured India Channels</AppText>
+                <AppButton title="See All" variant="ghost" size="sm" onPress={() => router.push('/live')} />
+              </View>
+              <View style={styles.channelList}>
+                {indianChannels.map((channel) => (
+                  <ChannelCard
+                    key={`india_${channel.id}`}
+                    channel={channel}
+                    isFavorite={favorites.includes(channel.id)}
+                    onToggleFavorite={handleToggleFavorite}
+                    onPressChannel={handlePressChannel}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Favorites Preview Section */}
+          {favoriteChannels.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
+                <AppText variant="titleMedium">♥ Favorites Preview</AppText>
+                <AppButton title="View All" variant="ghost" size="sm" onPress={() => router.push('/favorites')} />
+              </View>
+              <View style={styles.channelList}>
+                {favoriteChannels.map((channel) => (
+                  <ChannelCard
+                    key={`fav_${channel.id}`}
+                    channel={channel}
+                    isFavorite={true}
+                    onToggleFavorite={handleToggleFavorite}
+                    onPressChannel={handlePressChannel}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
 
           {/* Recently Watched Section */}
           {recentlyWatchedChannels.length > 0 && (
@@ -138,23 +213,43 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* Featured Live Channels Section */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
-              <AppText variant="titleMedium">Featured Channels</AppText>
+          {/* Browse Categories Horizontal Section */}
+          {categories.length > 0 && (
+            <View style={styles.section}>
+              <AppText variant="titleMedium">Categories</AppText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                {categories.map((cat) => (
+                  <Pressable
+                    key={`cat_chip_${cat}`}
+                    onPress={() => router.push('/live')}
+                    style={[styles.chip, { backgroundColor: colors.surfaceRaised, borderColor: colors.borderSubtle }]}>
+                    <AppText variant="caption" color="secondary">
+                      {cat.toUpperCase()}
+                    </AppText>
+                  </Pressable>
+                ))}
+              </ScrollView>
             </View>
-            <View style={styles.channelList}>
-              {featuredChannels.map((channel) => (
-                <ChannelCard
-                  key={`feat_${channel.id}`}
-                  channel={channel}
-                  isFavorite={favorites.includes(channel.id)}
-                  onToggleFavorite={handleToggleFavorite}
-                  onPressChannel={handlePressChannel}
-                />
-              ))}
+          )}
+
+          {/* Browse Countries Horizontal Section */}
+          {countries.length > 0 && (
+            <View style={styles.section}>
+              <AppText variant="titleMedium">Countries</AppText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                {countries.map((country) => (
+                  <Pressable
+                    key={`country_chip_${country}`}
+                    onPress={() => router.push('/live')}
+                    style={[styles.chip, { backgroundColor: colors.surfaceRaised, borderColor: colors.borderSubtle }]}>
+                    <AppText variant="caption" color="secondary">
+                      {country.toUpperCase()}
+                    </AppText>
+                  </Pressable>
+                ))}
+              </ScrollView>
             </View>
-          </View>
+          )}
         </View>
       </ScrollView>
     </AppContainer>
@@ -174,12 +269,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+  },
   bannerCard: {
+    padding: Spacing.md,
+  },
+  bannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: Spacing.sm,
   },
-  bannerActions: {
-    flexDirection: 'row',
-    marginTop: Spacing.xs,
+  bannerText: {
+    flex: 1,
   },
   section: {
     gap: Spacing.md,
@@ -191,5 +300,18 @@ const styles = StyleSheet.create({
   },
   channelList: {
     gap: Spacing.md,
+  },
+  chipRow: {
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  chip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

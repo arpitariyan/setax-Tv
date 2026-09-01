@@ -157,8 +157,20 @@ export const PlayerOverlayControls: React.FC<PlayerOverlayControlsProps> = ({
         </View>
       </View>
 
-      {/* Center Controls Row */}
+      {/* Center Controls Row with Prev Channel, Seek -10s, Play/Pause, Seek +10s, Next Channel */}
       <View style={styles.centerControl}>
+        {onPrevChannel ? (
+          <Pressable
+            onPress={() => {
+              onUserInteraction();
+              onPrevChannel();
+            }}
+            style={styles.navChannelBtn}
+            accessibilityLabel="Previous Channel">
+            <Ionicons name="play-skip-back-sharp" size={28} color={colors.textPrimary} />
+          </Pressable>
+        ) : null}
+
         {capabilities.seekable && onSeekBackward ? (
           <Pressable
             onPress={() => {
@@ -196,6 +208,18 @@ export const PlayerOverlayControls: React.FC<PlayerOverlayControlsProps> = ({
             accessibilityLabel="Forward 10 seconds">
             <Ionicons name="reload-circle-sharp" size={36} color={colors.textPrimary} />
             <AppText variant="caption" color="primary">+10s</AppText>
+          </Pressable>
+        ) : null}
+
+        {onNextChannel ? (
+          <Pressable
+            onPress={() => {
+              onUserInteraction();
+              onNextChannel();
+            }}
+            style={styles.navChannelBtn}
+            accessibilityLabel="Next Channel">
+            <Ionicons name="play-skip-forward-sharp" size={28} color={colors.textPrimary} />
           </Pressable>
         ) : null}
       </View>
@@ -273,7 +297,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.xl,
+    gap: Spacing.lg,
+  },
+  navChannelBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   playBtn: {
     width: 68,

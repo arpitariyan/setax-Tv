@@ -9,13 +9,20 @@ export const DEFAULT_CAPABILITIES: StreamCapabilities = {
   pictureInPicture: true,
 };
 
+export const INDIAN_LANGUAGES_SET = new Set([
+  'hindi', 'tamil', 'telugu', 'malayalam', 'bengali', 'marathi',
+  'kannada', 'gujarati', 'punjabi', 'panjabi', 'bhojpuri', 'assamese',
+  'oria', 'odia', 'chhattisgarhi', 'haryanvi', 'maithili', 'santali'
+]);
+
 /**
  * Normalizes raw M3U items into clean, strongly-typed Channel models.
- * Generates stable identifiers, deduplicates alternate streams, and normalizes categories.
+ * Generates stable identifiers, deduplicates alternate streams, and prioritizes Indian channels.
  */
 export class ChannelNormalizer {
   /**
    * Normalizes a full list of RawM3uItems and deduplicates identical channels by grouping alternate streams.
+   * Sorts Indian channels to the top of the catalogue.
    */
   static normalizeCatalogue(rawItems: RawM3uItem[]): Channel[] {
     const channelMap = new Map<string, Channel>();
@@ -26,7 +33,6 @@ export class ChannelNormalizer {
 
       const existing = channelMap.get(normalized.id);
       if (existing) {
-        // Merge alternate stream URL if distinct
         if (
           existing.streamUrl !== normalized.streamUrl &&
           !existing.alternateStreamUrls?.includes(normalized.streamUrl)
@@ -45,7 +51,24 @@ export class ChannelNormalizer {
       }
     }
 
-    return Array.from(channelMap.values());
+    const allChannels = Array.from(channelMap.values());
+
+    // Priority Sort: Indian channels first, then rest
+    return allChannels.sort((a, b) => {
+      const aIsIndia = ChannelNormalizer.isIndiaChannel(a);
+      const bIsIndia = ChannelNormalizer.isIndiaChannel(b);
+
+      if (aIsIndia && !bIsIndia) return -1;
+      if (!aIsIndia && bIsIndia) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  static isIndiaChannel(channel: Channel): boolean {
+    if (channel.countryCode === 'IN' || channel.country?.toLowerCase() === 'india') {
+      return true;
+    }
+    return channel.languages.some((l) => INDIAN_LANGUAGES_SET.has(l.toLowerCase()));
   }
 
   /**
@@ -61,16 +84,31 @@ export class ChannelNormalizer {
     const id = ChannelNormalizer.generateStableId(item, cleanName);
 
     const streamType = ChannelNormalizer.detectStreamType(item.streamUrl);
-    const categories = ChannelNormalizer.extractCategories(item.groupTitle, item.category);
+    const categories = ChannelNormalizer.extractCategories(cleanName, item.groupTitle, item.category);
     const languages = item.language ? [item.language.trim()] : [];
+
+    const rawCountry = (item.tvgCountry || item.country || '').trim();
+    let countryCode = rawCountry ? rawCountry.toUpperCase() : undefined;
+    let country = rawCountry;
+
+    // Auto-detect India from language or group title or channel name if unspecified
+    const isIndiaLang = languages.some((l) => INDIAN_LANGUAGES_SET.has(l.toLowerCase()));
+    const isIndiaGroup = categories.some((c) => c.toLowerCase().includes('india'));
+    const isIndiaName = /india|tv9|abp|aajtak|ndtv|zeer|dd|star|sony|b4u|etv|goldmines/i.test(cleanName);
+
+    if (countryCode === 'IN' || isIndiaLang || isIndiaGroup || isIndiaName) {
+      countryCode = 'IN';
+      country = 'India';
+    }
 
     return {
       id,
       name: cleanName,
       normalizedName,
       logo: item.logo || item.tvgLogo || undefined,
-      country: item.country || undefined,
-      countryCode: item.country ? item.country.toUpperCase() : undefined,
+      country: country || undefined,
+      countryCode,
+      subdivision: item.subdivision || undefined,
       languages,
       categories,
       streamUrl: item.streamUrl.trim(),
@@ -85,7 +123,7 @@ export class ChannelNormalizer {
   }
 
   /**
-   * Generates a deterministic, stable channel ID (never an array index!).
+   * Generates a deterministic, stable channel ID.
    */
   static generateStableId(item: RawM3uItem, cleanName: string): string {
     const preferredId = item.tvgId || item.id;
@@ -100,7 +138,6 @@ export class ChannelNormalizer {
   static cleanName(name: string): string {
     return name
       .replace(/\[.*?\]|\(.*?\)/g, (match) => {
-        // Retain 1080p or HD markers if useful, otherwise strip clutter
         if (/1080p|720p|4k|hd|fhd/i.test(match)) return match;
         return '';
       })
@@ -123,7 +160,7 @@ export class ChannelNormalizer {
     return 'unknown';
   }
 
-  static extractCategories(groupTitle?: string, category?: string): string[] {
+  static extractCategories(name: string, groupTitle?: string, category?: string): string[] {
     const set = new Set<string>();
     if (groupTitle) {
       groupTitle.split(/;|\||\//).forEach((cat) => {
@@ -137,11 +174,31 @@ export class ChannelNormalizer {
         if (trimmed) set.add(trimmed);
       });
     }
+
+    // Infer category ONLY if no categories were parsed from groupTitle or category attributes
+    if (set.size === 0) {
+      const lowerName = name.toLowerCase();
+      if (/news|khabar|samachar|24|taas|kalak|ghanta|today|wion|lokshahi|express/i.test(lowerName)) {
+        set.add('News');
+      } else if (/cinema|movies|filmi|cineplex|film|goldmines|kadak|superhits|bhojpuri/i.test(lowerName)) {
+        set.add('Movies');
+      } else if (/music|jalwa|jhakaas|tashan|songs|beats|insync|dhoom|isai|balle|yrf|zoom/i.test(lowerName)) {
+        set.add('Music');
+      } else if (/bhajan|aastha|bhakti|sanskar|sadhna|divya|peace|satsang|svbc|prayer|god|jesus|shubh|dharam|hare|krsna|salvation|hosanna/i.test(lowerName)) {
+        set.add('Devotional');
+      } else if (/sports|chakde|khel/i.test(lowerName)) {
+        set.add('Sports');
+      } else if (/kidz|cartoon|junior|animation|wow/i.test(lowerName)) {
+        set.add('Kids');
+      } else {
+        set.add('General');
+      }
+    }
     return Array.from(set);
   }
 
   /**
-   * Filters channels fast based on search query, country, category, status, and favorites.
+   * Filters channels fast based on search query, country, language, state/subdivision, category, status, and favorites.
    */
   static filterChannels(channels: Channel[], options: ChannelFilterOptions): Channel[] {
     const {
@@ -152,6 +209,8 @@ export class ChannelNormalizer {
       status,
       favoritesOnly,
       favoriteIds = [],
+      indiaOnly,
+      subdivision,
     } = options;
 
     const query = searchQuery ? searchQuery.trim().toLowerCase() : null;
@@ -162,6 +221,10 @@ export class ChannelNormalizer {
         return false;
       }
 
+      if (indiaOnly && !ChannelNormalizer.isIndiaChannel(ch)) {
+        return false;
+      }
+
       if (status && status !== 'all' && ch.status !== status) {
         return false;
       }
@@ -169,6 +232,13 @@ export class ChannelNormalizer {
       if (country && country !== 'all') {
         const chCountry = (ch.country || ch.countryCode || '').toLowerCase();
         if (!chCountry.includes(country.toLowerCase())) {
+          return false;
+        }
+      }
+
+      if (subdivision && subdivision !== 'all') {
+        const chSub = (ch.subdivision || ch.categories.join(' ')).toLowerCase();
+        if (!chSub.includes(subdivision.toLowerCase())) {
           return false;
         }
       }

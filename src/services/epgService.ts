@@ -4,6 +4,8 @@ import { EpgProgram } from '@/types/epg';
 export interface CurrentAndNextProgram {
   current: EpgProgram | null;
   next: EpgProgram | null;
+  currentFormattedTime?: string;
+  nextFormattedTime?: string;
   fallbackText: string;
 }
 
@@ -31,6 +33,14 @@ export class EpgService {
     saveEpgCache(programsByChannel);
   }
 
+  static formatTime(timestamp?: number): string {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }
+
   static getProgramInfo(channelId: string, epgId?: string): CurrentAndNextProgram {
     const key = epgId || channelId;
     const programs = EpgService.memoryEpgMap[key] || EpgService.memoryEpgMap[channelId] || [];
@@ -48,9 +58,19 @@ export class EpgService {
     const upcoming = programs.filter((p) => p.start >= now).sort((a, b) => a.start - b.start);
     const next = upcoming.length > 0 ? upcoming[0] : null;
 
+    const currentFormattedTime = current
+      ? `${EpgService.formatTime(current.start)} - ${EpgService.formatTime(current.stop)}`
+      : undefined;
+
+    const nextFormattedTime = next
+      ? `${EpgService.formatTime(next.start)} - ${EpgService.formatTime(next.stop)}`
+      : undefined;
+
     return {
       current,
       next,
+      currentFormattedTime,
+      nextFormattedTime,
       fallbackText: current ? current.title : FALLBACK_EPG_TEXT,
     };
   }

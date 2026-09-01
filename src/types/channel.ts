@@ -17,6 +17,7 @@ export interface Channel {
   logo?: string;
   country?: string;
   countryCode?: string;
+  subdivision?: string;
   languages: string[];
   categories: string[];
   streamUrl: string;
@@ -38,9 +39,11 @@ export interface RawM3uItem {
   tvgId?: string;
   tvgName?: string;
   tvgLogo?: string;
+  tvgCountry?: string;
   country?: string;
   language?: string;
   category?: string;
+  subdivision?: string;
   streamUrl: string;
   httpHeaders?: Record<string, string>;
   rawExtInf?: string;
@@ -67,4 +70,6 @@ export interface ChannelFilterOptions {
   status?: ChannelStatus | 'all';
   favoritesOnly?: boolean;
   favoriteIds?: string[];
+  indiaOnly?: boolean;
+  subdivision?: string | null;
 }

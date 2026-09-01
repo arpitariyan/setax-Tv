@@ -3,6 +3,7 @@ import { Channel } from '@/types/channel';
 export interface RecoveryResult {
   nextStreamUrl: string;
   streamIndex: number;
+  attemptCount: number;
   hasFallback: boolean;
 }
 
@@ -18,10 +19,12 @@ export class PlayerRecovery {
 
     if (attempts < alternates.length) {
       const nextStreamUrl = alternates[attempts];
-      PlayerRecovery.fallbackAttemptMap.set(channel.id, attempts + 1);
+      const newAttemptCount = attempts + 1;
+      PlayerRecovery.fallbackAttemptMap.set(channel.id, newAttemptCount);
       return {
         nextStreamUrl,
-        streamIndex: attempts + 1,
+        streamIndex: newAttemptCount,
+        attemptCount: newAttemptCount,
         hasFallback: true,
       };
     }

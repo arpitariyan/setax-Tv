@@ -9,7 +9,7 @@ import { Spacing } from '@/theme/tokens';
 import { PlaylistService } from '@/services/playlistService';
 import { ChannelNormalizer } from '@/services/channelNormalizer';
 import { getFavorites, addFavorite, removeFavorite } from '@/storage';
-import { Channel } from '@/types/channel';
+import { Channel, ChannelStatus } from '@/types/channel';
 
 export default function LiveScreen() {
   const { colors } = useTheme();
@@ -21,7 +21,11 @@ export default function LiveScreen() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedState, setSelectedState] = useState<string>('all');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<ChannelStatus | 'all'>('all');
   const [favoritesOnly, setFavoritesOnly] = useState<boolean>(false);
+  const [indiaOnly, setIndiaOnly] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const loadData = useCallback(async (forceRefresh = false) => {
@@ -71,7 +75,7 @@ export default function LiveScreen() {
     channels.forEach((ch) => {
       ch.categories.forEach((cat) => set.add(cat));
     });
-    const items: FilterOptionItem[] = [{ id: 'all', label: 'All Channels' }];
+    const items: FilterOptionItem[] = [{ id: 'all', label: 'All Categories' }];
     Array.from(set)
       .slice(0, 15)
       .forEach((cat) => {
@@ -80,14 +84,46 @@ export default function LiveScreen() {
     return items;
   }, [channels]);
 
+  const indianStatesOptions: FilterOptionItem[] = useMemo(() => {
+    return [
+      { id: 'all', label: 'All States' },
+      { id: 'delhi', label: 'Delhi' },
+      { id: 'maharashtra', label: 'Maharashtra' },
+      { id: 'tamil nadu', label: 'Tamil Nadu' },
+      { id: 'kerala', label: 'Kerala' },
+      { id: 'karnataka', label: 'Karnataka' },
+      { id: 'andhra', label: 'Andhra Pradesh' },
+    ];
+  }, []);
+
+  const indianLanguagesOptions: FilterOptionItem[] = useMemo(() => {
+    return [
+      { id: 'all', label: 'All Languages' },
+      { id: 'hindi', label: 'Hindi' },
+      { id: 'tamil', label: 'Tamil' },
+      { id: 'telugu', label: 'Telugu' },
+      { id: 'malayalam', label: 'Malayalam' },
+      { id: 'bengali', label: 'Bengali' },
+      { id: 'marathi', label: 'Marathi' },
+      { id: 'kannada', label: 'Kannada' },
+      { id: 'punjabi', label: 'Punjabi' },
+      { id: 'gujarati', label: 'Gujarati' },
+      { id: 'bhojpuri', label: 'Bhojpuri' },
+    ];
+  }, []);
+
   const filteredChannels = useMemo(() => {
     return ChannelNormalizer.filterChannels(channels, {
       searchQuery,
       category: selectedCategory,
+      subdivision: selectedState,
+      language: selectedLanguage,
+      status: selectedStatus,
       favoritesOnly,
       favoriteIds: favorites,
+      indiaOnly,
     });
-  }, [channels, searchQuery, selectedCategory, favoritesOnly, favorites]);
+  }, [channels, searchQuery, selectedCategory, selectedState, selectedLanguage, selectedStatus, favoritesOnly, favorites, indiaOnly]);
 
   const renderItem = useCallback(
     ({ item }: { item: Channel }) => (
@@ -111,7 +147,7 @@ export default function LiveScreen() {
             value={searchQuery}
             onChangeText={setSearchQuery}
             onClear={() => setSearchQuery('')}
-            placeholder="Search channels, countries, categories..."
+            placeholder="Search channels, states, languages..."
           />
           <FilterBar
             categories={categoriesOptions}
@@ -119,11 +155,21 @@ export default function LiveScreen() {
             onSelectCategory={setSelectedCategory}
             favoritesOnly={favoritesOnly}
             onToggleFavoritesOnly={() => setFavoritesOnly((prev) => !prev)}
+            indiaOnly={indiaOnly}
+            onToggleIndiaOnly={() => setIndiaOnly((prev) => !prev)}
+            states={indianStatesOptions}
+            selectedState={selectedState}
+            onSelectState={setSelectedState}
+            languages={indianLanguagesOptions}
+            selectedLanguage={selectedLanguage}
+            onSelectLanguage={setSelectedLanguage}
+            selectedStatus={selectedStatus}
+            onSelectStatus={setSelectedStatus}
           />
         </View>
 
         {loading ? (
-          <AppLoading message="Ingesting IPTV-org channels..." fullScreen={false} />
+          <AppLoading message="Ingesting Live TV channels..." fullScreen={false} />
         ) : errorMessage ? (
           <View style={styles.centerContainer}>
             <AppText variant="titleSmall" color="muted" align="center">

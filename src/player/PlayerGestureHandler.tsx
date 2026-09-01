@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react';
-import { StyleSheet, View, PanResponder, Pressable, Animated } from 'react-native';
+import { StyleSheet, View, PanResponder, Pressable, Animated, GestureResponderEvent, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from '@/components/ui';
@@ -43,19 +43,26 @@ export const PlayerGestureHandler: React.FC<PlayerGestureHandlerProps> = ({
     });
   }, [feedbackFadeAnim]);
 
-  const handlePress = useCallback(() => {
+  const handlePress = useCallback((evt: GestureResponderEvent) => {
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300;
+    const touchX = evt.nativeEvent.locationX;
+    const screenWidth = Dimensions.get('window').width;
 
     if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
       // Double tap detected
       if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
       lastTapRef.current = 0;
 
+      // Execute seek ONLY when stream is genuinely seekable (Section 23)
       if (seekable) {
-        // Double tap right side seek forward, left side seek backward
-        showFeedback('seek_fwd');
-        onDoubleTapSeekForward?.();
+        if (touchX < screenWidth / 2) {
+          showFeedback('seek_back');
+          onDoubleTapSeekBackward?.();
+        } else {
+          showFeedback('seek_fwd');
+          onDoubleTapSeekForward?.();
+        }
       }
     } else {
       lastTapRef.current = now;
@@ -63,7 +70,7 @@ export const PlayerGestureHandler: React.FC<PlayerGestureHandlerProps> = ({
         onTap();
       }, DOUBLE_TAP_DELAY);
     }
-  }, [seekable, onTap, onDoubleTapSeekForward, showFeedback]);
+  }, [seekable, onTap, onDoubleTapSeekBackward, onDoubleTapSeekForward, showFeedback]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -75,7 +82,7 @@ export const PlayerGestureHandler: React.FC<PlayerGestureHandlerProps> = ({
         const delta = Math.round((-gestureState.dy / 200) * 100);
         const level = Math.max(0, Math.min(100, 50 + delta));
 
-        if (gestureState.moveX < 180) {
+        if (gestureState.moveX < Dimensions.get('window').width / 2) {
           showFeedback('brightness', level);
         } else {
           showFeedback('volume', level);
