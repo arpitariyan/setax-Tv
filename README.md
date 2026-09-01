@@ -1,56 +1,95 @@
-# Welcome to your Expo app 👋
+# Mobile TV Live — Professional Android Live TV APK
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Mobile TV Live** is a production-quality, local-first Android Live TV mobile application built with **React Native**, **Expo SDK 57**, **TypeScript**, **Expo Router**, and **expo-video**.
 
-## Get started
+---
 
-1. Install dependencies
+## 🌟 Key Architecture & Product Features
 
-   ```bash
-   npm install
-   ```
+### 1. 100% Local-First & Zero Remote Database
+- **No Remote Database**: Zero backend databases (No MongoDB, PostgreSQL, Firebase, Supabase, or Redis user servers).
+- **No Authentication Server**: No passwords, emails, OTPs, or cloud logins required. Anonymous guest device ID generated locally using `expo-secure-store` / `AsyncStorage`.
+- **Local Storage Split**:
+  - `AsyncStorage`: App settings, favorites list, watch history (bounded to 20 items).
+  - `SecureStore`: Sensitive local device guest identifier.
+  - `Expo FileSystem`: Schema-versioned cached channel catalogue JSON (`CACHE_SCHEMA_VERSION = 1`) and EPG schedule envelope.
 
-2. Start the app
+### 2. IPTV-org Primary Data Source
+- Ingests public IPTV catalogue (`https://iptv-org.github.io/iptv/index.m3u`).
+- Dedicated M3U parser (`src/parsers/m3uParser.ts`) handles `#EXTINF` tags, malformed lines, HTTP headers, logos, countries, and categories.
+- Channel normalizer (`src/services/channelNormalizer.ts`) merges alternate stream URLs for duplicate channels and generates stable identifiers.
 
-   ```bash
-   npx expo start
-   ```
+### 3. Professional Live Streaming Player (`expo-video`)
+- **State Machine**: Predictable playback state transitions (`IDLE`, `CONNECTING`, `BUFFERING`, `PLAYING`, `PAUSED`, `SEEKING`, `LIVE_EDGE`, `RECONNECTING`, `ERROR`, `OFFLINE`).
+- **Dynamic Capability Resolver**: Dynamic inspection of stream capabilities (`live`, `seekable`, `qualitySelection`, `audioTracks`, `subtitles`, `pictureInPicture`). No fake seek or quality buttons displayed if unsupported!
+- **Advanced Player Overlay**: Auto-hiding control bar, lock mode overlay (`PlayerLockOverlay.tsx`), sleep timer hook (`useSleepTimer.ts`), settings modal, and in-player channel drawer (`ChannelDrawer.tsx`).
+- **Automatic Stream Recovery**: `PlayerRecovery` attempts alternate backup stream URLs sequentially upon playback failure before displaying human-readable error banners.
+- **Gestures & Keep-Awake**: Vertical swipe feedback for volume/brightness, double-tap seek detection, and screen keep-awake (`usePlayerKeepAwake.ts`).
 
-In the output, you'll find options to open the app in a
+### 4. EPG Integration & Mobile TV Guide
+- EPG XMLTV / JSON guide schedule parser (`src/parsers/epgParser.ts`).
+- `EpgService`: `getCurrentProgram` and `getNextProgram` lookup with clean fallback ("Program information unavailable.").
+- TV Guide screen (`src/app/(tabs)/guide.tsx`) optimized for mobile phone screens without dense horizontal grid clutter.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### 5. Intentional Design System & Accessibility
+- Custom dark theme system with semantic tokens (`src/theme/tokens.ts`).
+- Accessibility attributes (`accessibilityLabel`, `accessibilityRole`, `accessibilityHint`) and 44x44 dp minimum touch targets.
+- Responsive layout container (`AppContainer.tsx`) enforcing bounds on wide phone screens and tablets.
+- Global `ErrorBoundary.tsx` catching UI rendering exceptions gracefully.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+---
 
-## Get a fresh project
+## 📁 Folder Structure
 
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+Mobile Tv Live/
+├── assets/                  # App icons, splash screens, and images
+├── src/
+│   ├── app/                 # Expo Router file-based navigation routes
+│   │   ├── (tabs)/          # Native tab navigator (Home, Live, Guide, Favorites, Settings)
+│   │   ├── channel/[id].tsx # Channel details route
+│   │   ├── player/[id].tsx  # Fullscreen Live Player modal route
+│   │   └── search.tsx       # Instant local search route
+│   ├── components/          # Reusable UI primitives & card components
+│   ├── hooks/               # Custom hooks (useTheme, useNetworkState, etc.)
+│   ├── parsers/             # M3U parser & EPG XMLTV parser
+│   ├── player/              # Native VideoSurface, Overlay Controls, State Store, Recovery, Sleep Timer
+│   ├── services/            # PlaylistService, ChannelNormalizer, EpgService
+│   ├── storage/             # Guest ID, Settings, Favorites, History, Cache storage
+│   ├── theme/               # Design tokens, color palettes, spacing, typography
+│   └── types/               # TypeScript interfaces (Channel, EpgProgram, PlayerState)
+├── app.json                 # Expo SDK 57 Android production configuration
+├── jest.config.js           # Automated test suite configuration
+└── package.json             # App dependencies & scripts
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-### Other setup steps
+## 🛠️ Verification & Build Commands
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+### 1. Execute Unit Test Suite
+```bash
+npx jest
+```
+Runs 26 automated unit tests covering M3U parsing, EPG parsing, channel normalization, local storage persistence, player capability resolution, Zustand store state machine, stream recovery, network monitoring, and security/privacy audits.
 
-## Learn more
+### 2. Type Check
+```bash
+npx tsc --noEmit
+```
+Strict TypeScript compilation check.
 
-To learn more about developing your project with Expo, look at the following resources:
+### 3. Code Linting
+```bash
+npm run lint
+```
+Expo ESLint check.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+---
 
-## Join the community
+## 🚀 Running Locally
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+npm start
+```
+Runs the development server using Expo CLI.
